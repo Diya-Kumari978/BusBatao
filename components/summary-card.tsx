@@ -33,7 +33,7 @@ export function SummaryCard({
       setSummary(result);
       if (result.service_unavailable) {
         setState("error");
-        setErrorText("AI is unavailable or not configured. This is a clearly labelled rules-based summary, not an AI response.");
+        setErrorText("Report analysis is unavailable. Showing a rules-based summary.");
       } else {
         setState("ready");
       }
@@ -52,14 +52,14 @@ export function SummaryCard({
 
   return <article className={`summary-card ${demoMode ? "summary-demo" : ""}`}>
     <div className="summary-header"><span className="intelligence-mark" aria-hidden="true">B</span><div><p className="eyebrow">BUSBATAO INTELLIGENCE</p>
-      <span className="summary-label">{summary.generated_by === "AI" ? "AI summary (Gemini)" : "Rules-based fallback"}</span></div>
+      <span className="summary-label">{"Based on recent passenger reports"}</span></div>
     </div>
     <div className="summary-content"><p className="eyebrow">{label.toUpperCase()}</p><h2>{summary.summary}</h2>
-      <div className={`status-badge status-${summary.busStatus}`}><span aria-hidden="true">{summary.busStatus === "arrived" ? "●" : summary.busStatus === "disruption" ? "!" : "?"}</span>
-        <div><span>Bus status · {label}</span><strong>{summary.busStatus}</strong></div></div>
+      <div className={`status-badge status-${summary.busStatus}`}><span aria-hidden="true">{summary.busStatus === "arrived" ? "â—" : summary.busStatus === "disruption" ? "!" : "?"}</span>
+        <div><span>Bus status Â· {label}</span><strong>{summary.busStatus}</strong></div></div>
       <div className="metric-row"><span>Crowd level now</span><strong className={`crowd-badge crowd-${summary.crowdLevel}`}>{summary.crowdLevel}</strong></div>
       <div className="metric-row"><span>Conflicts</span><strong>{summary.conflicts}</strong></div>
-      <div className="metric-row"><span>Confidence</span><strong>{summary.confidence.level} · {summary.confidence.reason}</strong></div>
+      <div className="metric-row"><span>Confidence</span><strong>{summary.confidence.level} Â· {summary.confidence.reason}</strong></div>
       <div className="confidence-meter" role="img" aria-label={`Confidence: ${summary.confidence.level}`}>
         <div className="confidence-track"><span style={{ width: `${confidencePercent}%` }} /></div>
         <span>{summary.confidence.level} confidence</span>
@@ -67,8 +67,8 @@ export function SummaryCard({
       <p className="summary-description">{summary.advice}</p>
       {errorText && <p className="inline-error" role="status">{errorText}</p>}
     </div>
-    <div className="summary-actions"><button className="button button-small" type="button" onClick={() => void analyze()} disabled={state === "loading"}>{state === "loading" ? "Analysing…" : "Analyse recent reports"}</button>
-      <span className="summary-label" aria-live="polite">{state === "loading" ? "Checking reports…" : summary.generated_by === "AI" ? "AI response" : "Not AI-generated"}</span>
+    <div className="summary-actions"><button className="button button-small" type="button" onClick={() => void analyze()} disabled={state === "loading"}>{state === "loading" ? "Analysingâ€¦" : "Analyse recent reports"}</button>
+      <span className="summary-label" aria-live="polite">{state === "loading" ? "Checking reportsâ€¦" : "Based on recent passenger reports"}</span>
       <time className="summary-label summary-updated" dateTime={summary.generated_at}>Analysis checked {timeAgo(summary.generated_at)}</time></div>
     <p className="summary-disclaimer">{demoMode ? "These are fictional demonstration records, not passenger reports. " : ""}Reports are unverified observations, not official service information.</p>
   </article>;

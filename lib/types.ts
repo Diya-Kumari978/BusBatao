@@ -32,6 +32,11 @@ export interface Stop {
 
 export interface Route {
   id: string;
+  from?: string;
+  to?: string;
+  via?: string[];
+  university?: string;
+  stops?: string[];
   route_code: string;
   name: string;
   origin: string;
@@ -59,6 +64,13 @@ export interface Report {
   observed_at: string;
   submitted_at: string;
   reporter_id?: string | null;
+  reporter_name?: string | null;
+  reporter_location?: string | null;
+  bus_number?: string | null;
+  bus_location?: string | null;
+  is_on_bus?: boolean | null;
+  left_minutes_ago?: number | null;
+  expires_at?: string | null;
   source_type: "community" | "demonstration";
   moderation_status: "visible" | "flagged" | "hidden";
   is_demo: boolean;

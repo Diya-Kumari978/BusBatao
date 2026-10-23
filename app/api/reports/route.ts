@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { DUPLICATE_WINDOW_MINUTES, MAX_REPORTS_PER_MINUTE } from "@/lib/config";
 import { getReports } from "@/lib/data";
-import { getSupabaseAdmin } from "@/lib/supabase";
+import { getSupabaseAdmin, isSupabaseAuthError } from "@/lib/supabase";
 import { reportInputSchema } from "@/lib/validation";
 
 const submissions = new Map<string, number[]>();
@@ -49,6 +49,7 @@ export async function POST(request: NextRequest) {
     .gte("submitted_at", persistentRateCutoff);
   if (rateLimitError) {
     console.error("Report rate limit lookup failed", rateLimitError);
+    if (isSupabaseAuthError(rateLimitError)) return NextResponse.json({ error: "Supabase rejected SUPABASE_SERVICE_ROLE_KEY (HTTP 401). Your report can still be stored locally; replace the server key to enable shared reports." }, { status: 503 });
     return NextResponse.json({ error: "Unable to verify submission limits. Please try again." }, { status: 500 });
   }
   if ((recentReporterSubmissions ?? 0) >= MAX_REPORTS_PER_MINUTE) {
@@ -56,14 +57,16 @@ export async function POST(request: NextRequest) {
   }
   const [stopLookup, routeLookup] = await Promise.all([
     input.stopId ? supabase.from("stops").select("id,city,is_demo").eq("id", input.stopId).maybeSingle() : Promise.resolve({ data: null, error: null }),
-    input.routeId ? supabase.from("routes").select("id,city,is_demo").eq("id", input.routeId).maybeSingle() : Promise.resolve({ data: null, error: null }),
+    input.routeId ? supabase.from("routes").select("id,city,is_demo,published_status,verification_status").eq("id", input.routeId).maybeSingle() : Promise.resolve({ data: null, error: null }),
   ]);
   if (stopLookup.error || routeLookup.error) {
     console.error("Report target lookup failed", stopLookup.error ?? routeLookup.error);
+    if (isSupabaseAuthError(stopLookup.error ?? routeLookup.error)) return NextResponse.json({ error: "Supabase rejected SUPABASE_SERVICE_ROLE_KEY (HTTP 401). Your report can still be stored locally; replace the server key to enable shared reports." }, { status: 503 });
     return NextResponse.json({ error: "Unable to validate the selected stop or route." }, { status: 500 });
   }
   if (input.stopId && (!stopLookup.data || stopLookup.data.is_demo)) return NextResponse.json({ error: "That stop is unavailable for community reports." }, { status: 400 });
   if (input.routeId && (!routeLookup.data || routeLookup.data.is_demo)) return NextResponse.json({ error: "That route is unavailable for community reports." }, { status: 400 });
+  if (input.routeId && (routeLookup.data?.verification_status !== "verified" || routeLookup.data.published_status !== "active")) return NextResponse.json({ error: "This route is not active and verified in Supabase yet. Apply supabase/migration.sql; your report was kept locally." }, { status: 400 });
   if ((stopLookup.data && stopLookup.data.city !== input.city) || (routeLookup.data && routeLookup.data.city !== input.city)) {
     return NextResponse.json({ error: "The selected stop or route does not match the chosen city." }, { status: 400 });
   }
@@ -83,6 +86,7 @@ export async function POST(request: NextRequest) {
   const { data: duplicate, error: duplicateError } = await duplicateQuery.maybeSingle();
   if (duplicateError) {
     console.error("Duplicate report check failed", duplicateError);
+    if (isSupabaseAuthError(duplicateError)) return NextResponse.json({ error: "Supabase rejected SUPABASE_SERVICE_ROLE_KEY (HTTP 401). Your report can still be stored locally; replace the server key to enable shared reports." }, { status: 503 });
     return NextResponse.json({ error: "Unable to verify repeated submissions. Please try again." }, { status: 500 });
   }
   if (duplicate) return NextResponse.json({ error: "A report from this browser for this stop or route was already submitted recently." }, { status: 409 });
@@ -97,12 +101,20 @@ export async function POST(request: NextRequest) {
     description: input.description || null,
     observed_at: new Date(observedAt).toISOString(),
     reporter_id: input.reporterId,
+    reporter_name: input.reporterName,
+    reporter_location: input.reporterLocation || null,
+    bus_number: input.busNumber || null,
+    bus_location: input.busLocation || null,
+    is_on_bus: input.isOnBus === "skip" ? null : input.isOnBus === "yes",
+    left_minutes_ago: input.leftMinutesAgo ?? null,
+    expires_at: new Date(observedAt + 48 * 60 * 60_000).toISOString(),
     source_type: "community",
     moderation_status: "visible",
     is_demo: false,
-  }).select("id,stop_id,route_id,city,report_type,service_status,crowd_level,description,observed_at,submitted_at,source_type,moderation_status,is_demo").single();
+  }).select("id,stop_id,route_id,city,report_type,service_status,crowd_level,description,observed_at,submitted_at,reporter_name,reporter_location,bus_number,bus_location,is_on_bus,left_minutes_ago,expires_at,source_type,moderation_status,is_demo").single();
   if (error) {
     console.error("Report insert failed", error);
+    if (isSupabaseAuthError(error)) return NextResponse.json({ error: "Supabase rejected SUPABASE_SERVICE_ROLE_KEY (HTTP 401). Your report can still be stored locally; replace the server key to enable shared reports." }, { status: 503 });
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
   return NextResponse.json({ report: data, storage: "database" }, { status: 201 });

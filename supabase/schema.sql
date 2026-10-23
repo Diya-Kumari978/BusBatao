@@ -65,6 +65,13 @@ create table if not exists public.reports (
   observed_at timestamptz not null,
   submitted_at timestamptz not null default now(),
   reporter_id text,
+  reporter_name text,
+  reporter_location text,
+  bus_number text,
+  bus_location text,
+  is_on_bus boolean,
+  left_minutes_ago integer check (left_minutes_ago is null or left_minutes_ago between 0 and 1440),
+  expires_at timestamptz not null default (now() + interval '48 hours'),
   source_type text not null default 'community' check (source_type in ('community','demonstration')),
   moderation_status text not null default 'visible' check (moderation_status in ('visible','flagged','hidden')),
   is_demo boolean not null default false,
@@ -102,6 +109,24 @@ create table if not exists public.feedback (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.trip_feedback (
+  id uuid primary key default gen_random_uuid(),
+  trip_id uuid not null unique,
+  route_id text not null references public.routes(id) on delete cascade,
+  city text not null check (city in ('Hyderabad', 'Jamshoro')),
+  reporter_id text not null,
+  crowd_level text not null check (crowd_level in ('low','moderate','high','full')),
+  delay_minutes integer not null check (delay_minutes between 0 and 300),
+  on_time boolean not null,
+  punctuality text check (punctuality is null or punctuality in ('yes','no','late')),
+  bus_number text,
+  seat text check (seat is null or seat in ('Yes','Standing','No seat')),
+  comment text check (comment is null or char_length(comment) <= 240),
+  rating integer not null check (rating between 1 and 5),
+  observed_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+
 create table if not exists public.route_suggestions (
   id uuid primary key default gen_random_uuid(),
   city text not null check (city in ('Hyderabad', 'Jamshoro')),
@@ -122,6 +147,7 @@ create index if not exists reports_reporter_submitted_idx on public.reports(repo
 create index if not exists report_flags_review_idx on public.report_flags(review_status, created_at desc);
 create index if not exists ai_analyses_target_generated_idx on public.ai_analyses(stop_id, route_id, generated_at desc);
 create index if not exists route_suggestions_review_idx on public.route_suggestions(review_status, created_at desc);
+create index if not exists trip_feedback_route_observed_idx on public.trip_feedback(route_id, observed_at desc);
 
 drop trigger if exists routes_updated_at on public.routes;
 create trigger routes_updated_at before update on public.routes for each row execute function public.set_updated_at();
@@ -135,6 +161,7 @@ alter table public.reports enable row level security;
 alter table public.report_flags enable row level security;
 alter table public.ai_analyses enable row level security;
 alter table public.feedback enable row level security;
+alter table public.trip_feedback enable row level security;
 alter table public.route_suggestions enable row level security;
 
 drop policy if exists "Public can read published route catalogue" on public.routes;
@@ -152,9 +179,9 @@ create policy "Public can read analyses" on public.ai_analyses for select using 
 insert into public.routes
   (id, route_code, name, origin, destination, city, published_status, verification_status, source_name, source_url, last_verified_at, description)
 values
-  ('hyd-01-candidate','HYD-01','Hyder Chowk to Hatri Police Station','Hyder Chowk','Hatri Police Station','Hyderabad','unknown','unverified','SMTA route directory checked 2026-10-23','https://smta.gos.pk/route-map',null,'Candidate from the supplied brief; not listed in the current official directory view. Verify before relying on it.'),
-  ('hyd-02-candidate','HYD-02','Hala Naka to Tando Allahyar','Hala Naka','Tando Allahyar','Hyderabad','unknown','unverified','SMTA route directory checked 2026-10-23','https://smta.gos.pk/route-map',null,'Candidate from the supplied brief; not listed in the current official directory view. Verify before relying on it.'),
-  ('hyd-03-candidate','HYD-03','Hyder Chowk to Kohsar Colony','Hyder Chowk','Kohsar Colony','Hyderabad','unknown','unverified','SMTA route directory checked 2026-10-23','https://smta.gos.pk/route-map',null,'Candidate from the supplied brief; not listed in the current official directory view. Verify before relying on it.')
+  ('hyd-01-candidate','HYD-01','Hyder Chowk to Hatri Police Station','Hyder Chowk','Hatri Police Station','Hyderabad','active','verified','SMTA route directory (checked 2026-10-23)','https://smta.gos.pk/route-map','2026-10-23T00:00:00Z','Official active route, 15 km. Ordered stops: Hyder Chowk, Fatima Jinnah NBP, Civic Center, Giddu Chowk, Qasim Chowk, Central Jail Hyderabad, ISRA Hospital, Hatri Police Station. Fare and timetable are not published.'),
+  ('hyd-02-candidate','HYD-02','Hala Naka to Tando Allahyar','Hala Naka','Tando Allahyar','Hyderabad','active','verified','SMTA route directory (checked 2026-10-23)','https://smta.gos.pk/route-map','2026-10-23T00:00:00Z','Official active route, 40 km. Ordered stops: Hala Naka, New Sabzi Mandi, Mirrani Goth, Tando Jam Toll, Detta Goth, Goth Misri Solangi, Tando Jam, Khesana Mori, Rashidabad, Tando Allahyar. Fare and timetable are not published.'),
+  ('hyd-03-candidate','HYD-03','Hyder Chowk to Kohsar Colony (inactive)','Hyder Chowk','Kohsar Colony','Hyderabad','inactive','verified','SMTA route directory (checked 2026-10-23)','https://smta.gos.pk/route-map','2026-10-23T00:00:00Z','Official inactive route, 14 km. Ordered stops: Hyder Chowk, Tandi Sarak, Autobahn Road, Latifabad, Airport Road, Kohsar Colony. Confirm current service before travelling.')
 on conflict (id) do update set
   published_status = excluded.published_status,
   verification_status = excluded.verification_status,

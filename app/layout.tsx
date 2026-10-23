@@ -1,23 +1,19 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { Brand } from "@/components/brand";
-import { Splash } from "@/components/splash";
+import { LanguageProvider } from "@/components/language-context";
+import { MobileNavigation, SiteFooter, SiteHeader } from "@/components/site-chrome";
 import "leaflet/dist/leaflet.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "BusBatao — Know The Crowd Before You Board",
+  title: "Bus Batao | Know the crowd before you board",
   description: "Passenger observations and route information for Hyderabad and Jamshoro, Pakistan.",
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en"><body>
-    <header className="site-header"><Brand />
-      <nav className="desktop-nav" aria-label="Main navigation"><Link href="/">Home</Link></nav>
-    </header>
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  return <html lang="en" dir="ltr"><body><LanguageProvider initialLanguage="English">
+    <SiteHeader />
     <main>{children}</main>
-    <nav className="mobile-nav" aria-label="Mobile navigation"><Link href="/">Home</Link></nav>
-    <footer className="site-footer"><Brand compact /><span>Passenger observations are not official service announcements.</span></footer>
-    <Splash />
-  </body></html>;
+    <MobileNavigation />
+    <SiteFooter />
+  </LanguageProvider></body></html>;
 }
