@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 285" role="img" aria-labelledby="title desc">
+  <title id="title">BusBatao</title><desc id="desc">A smiling green bus with a yellow chat bubble</desc>
+  <path d="M230 16h76c13 0 23 10 23 23v36l-24-14h-75c-13 0-23-10-23-23v-1c0-12 10-21 23-21Z" fill="#FACC15"/>
+  <path d="M53 105c0-22 18-40 40-40h174c22 0 40 18 40 40v112H53V105Z" fill="#16A34A"/>
+  <path d="M80 91h83v64H80zm101 0h101v64H181z" fill="#fff"/>
+  <path d="M102 174c15 20 35 20 50 0m44 0c15 20 35 20 50 0" fill="none" stroke="#111" stroke-width="10" stroke-linecap="round"/>
+  <circle cx="123" cy="165" r="7" fill="#FACC15"/><circle cx="226" cy="165" r="7" fill="#FACC15"/>
+  <path d="M75 216v12m210-12v12" stroke="#111" stroke-width="12" stroke-linecap="round"/>
+  <circle cx="112" cy="226" r="22" fill="#111"/><circle cx="248" cy="226" r="22" fill="#111"/>
+  <text x="180" y="275" text-anchor="middle" font-family="Arial, sans-serif" font-size="31" font-weight="800" letter-spacing="-1"><tspan fill="#16A34A">Bus</tspan><tspan fill="#FACC15">Batao</tspan></text>
+</svg>

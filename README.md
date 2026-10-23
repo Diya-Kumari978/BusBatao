@@ -9,7 +9,7 @@ BusBatao is a public-service application for published route information and pas
 The Sindh Mass Transit Authority route directory ([source](https://smta.gos.pk/route-map)) was checked on **23 October 2026**. The page content available during the check listed Karachi routes R1–R13 and did not expose a Hyderabad route directory. As a result:
 
 - The HYD-01, HYD-02 and HYD-03 examples from the project brief are recorded only as **unverified candidate routes** with unknown published status and no fabricated stop sequence.
-- No stop coordinates are seeded.
+- [`supabase/seed-stops.sql`](./supabase/seed-stops.sql) contains six community-listed Hyderabad/Jamshoro stops with approximate, explicitly unverified coordinates. It adds catalogue rows only—not routes, reports or demo records.
 - No route is marked active or officially verified based on the inaccessible/unlisted evidence.
 - The latest source-check date and URL are kept with each candidate. The route directory should be rechecked manually before a real deployment.
 
@@ -22,7 +22,7 @@ The Jamshoro campus loop, campus connector, city connector, five stops and twelv
 - Stop and route detail pages; route stop sequence appears only when configured.
 - Report submission with observation time distinct from database submission time, route/stop, report type, service status, crowd level and optional description.
 - Report history filters and an observation flag queue.
-- Fresh (under 15 min), Recent (15–60 min), Older report (over 60 min) labels based on observation time.
+- Recent (under 15 min), Aging (15–60 min) and Stale (over 60 min) labels based on observation time. Only visible observations from the last 60 minutes affect status.
 - Contradiction detection for close-in-time service and crowd observations; confidence considers evidence quantity, freshness, agreement and conflicts.
 - Opt-in, isolated Demo Mode with five stops, three fictional routes and twelve fictional reports.
 - Route suggestions are stored unverified and reviewed through protected admin endpoints.
@@ -41,12 +41,13 @@ The Jamshoro campus loop, campus connector, city connector, five stops and twelv
 1. Use Node.js 20.9 or newer.
 2. Copy `.env.example` to `.env.local`.
 3. For persistent shared routes, observations, flags, analyses, feedback and suggestions, create a Supabase project and run [`supabase/schema.sql`](./supabase/schema.sql) in its SQL editor. For an existing setup, also run the feedback table SQL shown below.
-4. Stop maps use only configured Supabase stop coordinates. Add verified `latitude` and `longitude` values to stops to make them appear as OpenStreetMap markers; no bus locations are fabricated.
-4. Set `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in `.env.local`. Never use the service key in client-side code.
-5. For actual Gemini analyses, set `AI_API_KEY`. `AI_MODEL` defaults to `gemini-2.5-flash`.
-6. Run `npm install`, then `npm run dev` and open `http://localhost:3000`.
-7. Opt in to Demo Mode using the dashboard control. To seed its clearly separated records into Supabase, run `npm run seed`. To remove only demo records without deleting community reports, run `npm run reset:demo`.
-8. Run `npm test`, `npx tsc --noEmit`, and `npm run build`.
+4. To configure the six approximate community stops, open Supabase **SQL Editor**, paste the contents of [`supabase/seed-stops.sql`](./supabase/seed-stops.sql), and run it. The script is safe to rerun. Stop records are non-demo and unverified; the app loads them from `public.stops` after the server-side Supabase environment is configured. No Hyderabad/Jamshoro routes are added without a reliable source.
+5. Stop maps use configured Supabase coordinates and label their approximate/unverified status; no bus locations are fabricated.
+6. Set `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in `.env.local`. Never use the service key in client-side code.
+7. For actual Gemini analyses, set `AI_API_KEY`. `AI_MODEL` defaults to `gemini-2.5-flash`.
+8. Run `npm install`, then `npm run dev` and open `http://localhost:3000`.
+9. Opt in to Demo Mode only by visiting `/?demo=1`. To seed its clearly separated records into Supabase, run `npm run seed`. To remove only demo records without deleting community reports, run `npm run reset:demo`.
+10. Run `npm run lint`, `npm test`, `npx tsc --noEmit`, and `npm run build`.
 
 If Supabase is not configured, report submission and feedback are unavailable and the app displays an error; no live report is saved in browser storage. Demo Mode works locally without Supabase. AI summaries use actual Supabase report rows or the explicitly selected fictional demo dataset; if `AI_API_KEY` is absent, the app labels its deterministic fallback as not AI-generated.
 
@@ -65,11 +66,11 @@ alter table public.feedback enable row level security;
 
 ## Routes and backend
 
-- `/` — dashboard and explicit Demo Mode toggle.
+- `/` — live dashboard; `/?demo=1` displays isolated fictional demo data.
 - `/routes` and `/routes/[id]` — searchable catalogue and route details.
-- `/stops/[id]` — stop detail and report history.
+- `/stop/[id]` — stop result and report history; `/stops/[id]` redirects to the canonical path.
 - `/report` — passenger observation form.
-- `/reports` — filterable community history; `/reports?demo=1` shows only fictional samples.
+- `/updates` — filterable community history; `/updates?demo=1` shows only fictional samples.
 - `/compare` — comparison with an honest insufficient-evidence state.
 - `/routes/suggest` — submit an unverified route suggestion.
 - `/about` — data sources, freshness, AI and privacy limitations.
@@ -80,7 +81,7 @@ Admin APIs require `Authorization: Bearer <ADMIN_API_KEY>` and a server-side Sup
 
 ## AI and data handling
 
-The AI route retrieves visible reports from the database, filters to observations in the configured one-hour evidence window, deduplicates a browser reporter’s close repeat observations, and sends only the evidence fields needed for analysis. Descriptions are untrusted data, never instructions. Confidence, report IDs, timestamps and freshness are derived in application code, not trusted from the model. Valid model output is schema-checked; invalid JSON is retried once. AI request limits and a 15-second provider timeout reduce cost and latency. Analyses are stored in `ai_analyses` with evidence IDs when Supabase is configured.
+The AI route retrieves visible reports from the database, filters to observations in the one-hour evidence window, deduplicates a browser reporter’s close repeat observations, and sends only the evidence fields needed for analysis. Descriptions are untrusted data, never instructions. Report IDs, timestamps and freshness are derived in application code; model confidence is validated with the rest of the JSON response. Valid model output is schema-checked; invalid JSON is retried once. AI request limits and a provider timeout reduce cost and latency. Analyses are stored in `ai_analyses` with evidence IDs when Supabase is configured.
 
 Demo analyses use the separate fictional dataset only after Demo Mode is explicitly selected. Real community data and demo data are never silently combined.
 
@@ -89,6 +90,7 @@ Demo analyses use the separate fictional dataset only after Demo Mode is explici
 | Variable | Required | Purpose |
 |---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | For persistent/shared data | Supabase project endpoint. |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Optional | Public Supabase client key; it is not used for privileged database access. |
 | `SUPABASE_SERVICE_ROLE_KEY` | For server-side database access | Secret service key. Keep private and rotate if exposed. |
 | `AI_API_KEY` | For Gemini | Secret provider API key. It is sent only in a server-side request header. |
 | `AI_MODEL` | No | Gemini model identifier; default `gemini-2.5-flash`. |
@@ -109,7 +111,7 @@ For Vercel deployment, connect this project, set server environment variables in
 1. Open the live-data view and explain why the supplied HYD route examples remain unverified.
 2. Opt into Demo Mode and show the separate fictional route catalogue and observations.
 3. Open `DEMO-01`, inspect its stops, and run BusBatao Intelligence; show the conflicting demo observations and evidence strength.
-4. Submit an observation and show the shared database result, or explicitly show browser-only mode if Supabase is not configured.
+4. Submit an observation and show the shared database result; if Supabase is not configured, the form must show that the report was not saved.
 5. Compare sample routes and show that empty evidence does not imply a service recommendation.
 6. Explain report flags, route suggestion review, privacy, and the absence of live GPS or arrival guarantees.
 
@@ -117,7 +119,7 @@ For Vercel deployment, connect this project, set server environment variables in
 
 - No verified Hyderabad or Jamshoro operating route data was available from the official route page checked for this implementation. Local verification is required before representing any route as official.
 - Supabase, Gemini, GitHub and Vercel require the project owner’s credentials and are not connected or deployed by this code alone.
-- In-memory rate limits are best-effort in serverless hosting; use a durable edge limiter before public high-volume deployment.
+- Report-count rate limits are persisted through Supabase per reporter, with an in-memory per-instance IP safeguard; use a durable edge limiter for IP-wide limits before public high-volume deployment.
 - Additional work: verified local operator feeds, reviewed route-stop sequences, formal admin authentication/roles, durable rate limiting, and usability testing with local commuters.
 
 ## Team and credits

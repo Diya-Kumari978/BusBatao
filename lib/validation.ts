@@ -3,6 +3,7 @@ import { MAX_DESCRIPTION_LENGTH } from "./config";
 import { CITIES, CROWD_LEVELS, REPORT_TYPES } from "./types";
 
 const safeDescription = z.string().trim().max(MAX_DESCRIPTION_LENGTH)
+  // eslint-disable-next-line no-control-regex -- Reject unsafe control characters in user text.
   .refine((value) => !/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/.test(value), "Description contains unsupported control characters.")
   .optional();
 

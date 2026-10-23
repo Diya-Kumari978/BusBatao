@@ -23,6 +23,6 @@ export default function AboutPage() {
       <p>Passenger reports can be inaccurate, duplicated, or outdated. BusBatao does not offer live vehicle GPS, official arrival predictions, verified service availability, or safety ratings. Check the operator or local sources before travelling.</p>
       <p>Fictional records appear only when Demo Mode is explicitly selected; they are isolated from community reports.</p>
     </section>
-    <div className="page-actions"><Link className="button button-small" href="/report">Share an observation</Link><Link className="text-link" href="/routes/suggest">Suggest a local route →</Link></div>
+    <div className="page-actions"><Link className="button button-small" href="/">Start your trip</Link><Link className="text-link" href="/routes/suggest">Suggest a local route →</Link></div>
   </div>;
 }

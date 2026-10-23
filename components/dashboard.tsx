@@ -1,52 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { classifyFreshness } from "@/lib/analysis";
+import { useState } from "react";
+import { classifyFreshness, independentRecentReports } from "@/lib/analysis";
 import { CITIES, type City, type Report, type Route, type Stop } from "@/lib/types";
 import { CrowdBar, verificationLabel } from "./data-ui";
 import { SummaryCard } from "./summary-card";
 
 export { CrowdBar, verificationLabel };
-interface DemoData { stops: Stop[]; routes: Route[]; reports: Report[] }
 
-export function Dashboard({ initialStops, initialRoutes, initialReports, initialError }: { initialStops: Stop[]; initialRoutes: Route[]; initialReports: Report[]; initialError?: string }) {
-  const [demoMode, setDemoMode] = useState(false);
-  const [demoData, setDemoData] = useState<DemoData | null>(null);
+export function Dashboard({ initialStops, initialRoutes, initialReports, initialError, initialDemoMode = false }: { initialStops: Stop[]; initialRoutes: Route[]; initialReports: Report[]; initialError?: string; initialDemoMode?: boolean }) {
+  const [demoMode] = useState(initialDemoMode);
   const [city, setCity] = useState<City | "All">("All");
   const [search, setSearch] = useState("");
-  const [demoError, setDemoError] = useState("");
-
-  async function loadDemo() {
-    setDemoError("");
-    try {
-      const response = await fetch("/api/demo");
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "Could not load demo data.");
-      setDemoData(result);
-      setDemoMode(true);
-      setDemoError(result.warning || "");
-      localStorage.setItem("busbatao-demo-enabled", "true");
-    } catch (error) {
-      setDemoError(error instanceof Error ? error.message : "Could not load demo data.");
-    }
-  }
-
-  function resetDemo() {
-    setDemoMode(false);
-    setDemoData(null);
-    localStorage.removeItem("busbatao-demo-enabled");
-  }
-
-  useEffect(() => {
-    if (localStorage.getItem("busbatao-demo-enabled") === "true") void loadDemo();
-    // The page snapshot is refreshed by Next after a server-backed report succeeds.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const stops = demoMode ? demoData?.stops ?? [] : initialStops;
-  const routes = demoMode ? demoData?.routes ?? [] : initialRoutes;
-  const reports = useMemo(() => demoMode ? demoData?.reports ?? [] : initialReports, [demoMode, demoData, initialReports]);
+  const stops = initialStops;
+  const routes = initialRoutes;
+  const reports = initialReports;
   const visibleStops = stops.filter((stop) => (city === "All" || stop.city === city) && `${stop.name} ${stop.city}`.toLowerCase().includes(search.toLowerCase()));
   const summaryStop = visibleStops[0];
 
@@ -58,9 +27,9 @@ export function Dashboard({ initialStops, initialRoutes, initialReports, initial
     <div className="demo-toolbar">
       <div><span className={`source-chip ${demoMode ? "source-demo" : "source-community"}`}><i />{demoMode ? "Demo mode · fictional data" : "Live community data"}</span>
         <span className="demo-explainer">{demoMode ? "Sample records are isolated from community reports." : "No demo activity is mixed into real reports."}</span></div>
-      <button className="text-button" type="button" onClick={demoMode ? resetDemo : loadDemo}>{demoMode ? "Exit demo mode" : "Explore demo data"}</button>
+      <Link className="text-button" href={demoMode ? "/" : "/?demo=1"}>{demoMode ? "Exit demo mode" : "Explore demo data"}</Link>
     </div>
-    {(demoError || initialError) && <p className="inline-error" role="alert">{demoError || initialError}</p>}
+    {initialError && <p className="inline-error" role="alert">{initialError}</p>}
     <div className="legend-row"><span><i className="legend-dot official" />Published catalogue</span><span><i className="legend-dot community" />Passenger observation</span><span><i className="legend-dot demo" />Fictional demo</span></div>
 
     <div className="dashboard-grid">
@@ -68,14 +37,16 @@ export function Dashboard({ initialStops, initialRoutes, initialReports, initial
         {summaryStop ? <SummaryCard targetType="stop" targetId={summaryStop.id} reports={reports.filter((report) => report.stop_id === summaryStop.id)} demoMode={demoMode} label={summaryStop.name} /> : <div className="panel onboarding-card">
           <p className="eyebrow">BUSBATAO INTELLIGENCE</p><h2>Start with the information we can verify.</h2>
           <p className="muted">No configured stops or passenger observations are available yet. Explore isolated fictional data or contribute a verified route source.</p>
-          <button className="button" type="button" onClick={loadDemo}>Explore demo data</button>
+          <Link className="button" href="/?demo=1">Explore demo data</Link>
         </div>}
       </section>
       <aside className="side-panel panel">
         <div className="panel-title-row"><div><p className="eyebrow">DATA CHECK</p><h2>What we know</h2></div><span className="source-chip source-official"><i />Catalogue</span></div>
-        <p className="muted small">SMTA’s route directory was checked on 23 Oct 2026. The current listing showed Karachi routes; no Hyderabad listing was verified during this check.</p>
-        <div className="metric-row"><span>Configured stops</span><strong>{stops.length.toString().padStart(2, "0")}</strong></div>
-        <div className="metric-row"><span>Candidate routes</span><strong>{routes.length.toString().padStart(2, "0")}</strong></div>
+        <p className="muted small">{demoMode
+          ? "Demo stops and routes are fictional sample records, separate from configured catalogue data."
+          : "SMTA’s route directory was checked on 23 Oct 2026. The current listing showed Karachi routes; no Hyderabad listing was verified during this check."}</p>
+        <div className="metric-row"><span>{demoMode ? "Demo stops" : "Configured stops"}</span><strong>{stops.length.toString().padStart(2, "0")}</strong></div>
+        <div className="metric-row"><span>{demoMode ? "Demo routes" : "Candidate routes"}</span><strong>{routes.length.toString().padStart(2, "0")}</strong></div>
         <Link className="text-link" href="/about">Data sources & limitations →</Link>
       </aside>
     </div>
@@ -84,11 +55,12 @@ export function Dashboard({ initialStops, initialRoutes, initialReports, initial
       <div className="section-heading"><div><p className="eyebrow">STOP STATUS</p><h2>Stops</h2></div></div>
       {visibleStops.length ? <div className="stop-grid">{visibleStops.map((stop) => {
         const stopReports = reports.filter((report) => report.stop_id === stop.id);
-        const latest = [...stopReports].sort((a, b) => Date.parse(b.observed_at) - Date.parse(a.observed_at))[0];
+        const latest = independentRecentReports(stopReports)[0];
         const freshness = latest ? classifyFreshness(latest.observed_at) : "No recent data";
         return <Link className="stop-card panel" href={`/stop/${encodeURIComponent(stop.id)}${demoMode ? "?demo=1" : ""}`} key={stop.id}>
           <div className="card-topline"><span className="location-label">{stop.city}</span><span className={`freshness-chip freshness-${freshness.toLowerCase().replaceAll(" ", "-")}`}>{freshness}</span></div>
           <h3>{stop.name}</h3><p className="latest-description">{latest ? reportTitle(latest.report_type) : "No recent reports available."}</p>
+          {latest && <time className="status-updated" dateTime={latest.observed_at}>Updated {timeAgo(latest.observed_at)}</time>}
           <CrowdBar level={latest?.crowd_level} />
           {stop.is_demo && <span className="demo-note">Fictional demo stop</span>}
         </Link>;

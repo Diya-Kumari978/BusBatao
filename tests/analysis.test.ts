@@ -22,10 +22,12 @@ test("classifies Recent, Aging, and Stale based on observation time", () => {
   assert.equal(classifyFreshness(new Date(now.getTime() - 61 * 60_000), now), "Stale");
 });
 
-test("rules summary uses the required unknown state when no Recent report exists", () => {
+test("rules summary uses visible reports from the last hour and unknown when none exist", () => {
   assert.equal(buildRuleSummary([], now).summary, "No recent reports. Status unknown.");
-  assert.equal(buildRuleSummary([report("bus_delayed", 20)], now).busStatus, "unknown");
+  assert.equal(buildRuleSummary([report("bus_delayed", 20)], now).busStatus, "delayed");
   assert.equal(buildRuleSummary([report("bus_delayed", 5)], now).busStatus, "delayed");
+  assert.equal(buildRuleSummary([report("bus_delayed", 60)], now).busStatus, "delayed");
+  assert.equal(buildRuleSummary([report("bus_delayed", 61)], now).summary, "No recent reports. Status unknown.");
 });
 
 test("detects close-in-time contradictory bus and crowd observations", () => {

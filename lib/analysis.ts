@@ -98,8 +98,7 @@ function reportDescription(report: Report): string {
 }
 
 export function buildRuleSummary(reports: Report[], now = new Date()): TransportSummary {
-  const recent = independentRecentReports(reports, now)
-    .filter((report) => classifyFreshness(report.observed_at, now) === "Recent");
+  const recent = independentRecentReports(reports, now);
   const conflicts = detectConflicts(recent);
   const latest = recent[0];
   const ruleConfidence = calculateConfidence(recent, now);

@@ -41,6 +41,19 @@ export async function POST(request: NextRequest) {
 
   const supabase = getSupabaseAdmin();
   if (!supabase) return NextResponse.json({ error: "Shared database is not configured. Your report was not saved." }, { status: 503 });
+  const persistentRateCutoff = new Date(now - 60_000).toISOString();
+  const { count: recentReporterSubmissions, error: rateLimitError } = await supabase.from("reports")
+    .select("id", { count: "exact", head: true })
+    .eq("reporter_id", input.reporterId)
+    .eq("is_demo", false)
+    .gte("submitted_at", persistentRateCutoff);
+  if (rateLimitError) {
+    console.error("Report rate limit lookup failed", rateLimitError);
+    return NextResponse.json({ error: "Unable to verify submission limits. Please try again." }, { status: 500 });
+  }
+  if ((recentReporterSubmissions ?? 0) >= MAX_REPORTS_PER_MINUTE) {
+    return NextResponse.json({ error: "Too many submissions. Please wait a minute before trying again." }, { status: 429 });
+  }
   const [stopLookup, routeLookup] = await Promise.all([
     input.stopId ? supabase.from("stops").select("id,city,is_demo").eq("id", input.stopId).maybeSingle() : Promise.resolve({ data: null, error: null }),
     input.routeId ? supabase.from("routes").select("id,city,is_demo").eq("id", input.routeId).maybeSingle() : Promise.resolve({ data: null, error: null }),

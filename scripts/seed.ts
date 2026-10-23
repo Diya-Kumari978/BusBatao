@@ -1,6 +1,5 @@
 import { loadEnvConfig } from "@next/env";
 import { createClient } from "@supabase/supabase-js";
-import { randomUUID } from "node:crypto";
 import { DEMO_REPORTS, DEMO_ROUTES, DEMO_STOPS } from "../lib/demo-data";
 
 loadEnvConfig(process.cwd());

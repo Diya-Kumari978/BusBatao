@@ -1,3 +1,5 @@
+-- BusBatao published catalogue seed: stops only, never passenger reports or demo records.
+-- Coordinates are community-listed approximations and are intentionally marked unverified.
 insert into public.stops
   (id, name, city, latitude, longitude, coordinate_source, verification_status, source_url, is_demo)
 values

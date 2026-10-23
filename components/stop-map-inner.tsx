@@ -26,7 +26,7 @@ export default function StopMapInner({ stops, reports }: { stops: Stop[]; report
       />
       {mappedStops.map((stop) => {
         const latest = latestByStop.get(stop.id);
-        return <CircleMarker key={stop.id} center={[stop.latitude!, stop.longitude!]} radius={8} pathOptions={{ color: "#16845f", fillColor: "#16845f", fillOpacity: 0.85 }}>
+        return <CircleMarker key={stop.id} center={[stop.latitude!, stop.longitude!]} radius={8} pathOptions={{ color: "#16A34A", fillColor: "#16A34A", fillOpacity: 0.85 }}>
           <Popup><strong>{stop.name}</strong><br />
             Latest report: {latest ? reportTitle(latest.report_type) : "None"}<br />
             Crowd level: {latest?.crowd_level ?? "unknown"}<br />

@@ -22,18 +22,18 @@ export default async function RouteDetailsPage({ params, searchParams }: { param
   const sortedReports = [...reports].sort((a, b) => Date.parse(b.observed_at) - Date.parse(a.observed_at));
   const label = `${route.route_code} · ${route.name}`;
   return <div className="page-shell">
-    <Link className="back-link" href="/routes">← Back to routes</Link>
+    <Link className="back-link" href="/">← Back to your trip</Link>
     <div className="stop-detail-heading"><div><p className="eyebrow">{route.city.toUpperCase()} · ROUTE DETAILS</p><h1>{route.route_code}: {route.name}</h1>
       <p className="subtitle">{route.origin} <span aria-hidden="true">→</span> {route.destination}</p></div>
       <span className={`verification-chip verification-${route.verification_status}`}>{route.verification_status === "verified" ? "Verified source" : route.verification_status === "demonstration" ? "Demo data" : "Unverified route"}</span>
     </div>
     <div className="detail-grid"><section>
       <SummaryCard key={`${demoMode}:${route.id}`} targetType="route" targetId={route.id} reports={sortedReports as Report[]} demoMode={demoMode} label={label} autoAnalyze />
-      {!demoMode && <FeedbackForm targetType="route" targetId={route.id} />}
-      <section className="section-block"><div className="section-heading"><div><p className="eyebrow">PASSENGER OBSERVATIONS</p><h2>Recent reports</h2></div><Link className="text-link" href="/report">Share an observation →</Link></div>
+      <section className="section-block"><div className="section-heading"><div><p className="eyebrow">PASSENGER OBSERVATIONS</p><h2>Recent reports</h2></div><Link className="text-link" href="/">Back to your trip →</Link></div>
         <div className="report-list panel">{sortedReports.length ? sortedReports.map((report) => <ReportRow key={report.id} report={report} />) : <p className="empty-state">No recent reports available.</p>}</div>
       </section>
       <div className="section-block"><div className="section-heading"><div><p className="eyebrow">ROUTE STOPS</p><h2>Map</h2></div></div><StopMap stops={routeStops.filter((stop): stop is NonNullable<typeof stop> => Boolean(stop))} reports={sortedReports} /></div>
+      {!demoMode && <FeedbackForm targetType="route" targetId={route.id} />}
       <article className="panel source-panel"><p className="eyebrow">PUBLISHED ROUTE INFORMATION</p>
         <div className="metric-row"><span>Published status</span><strong>{route.published_status}</strong></div>
         <div className="metric-row"><span>Verification status</span><strong>{route.verification_status}</strong></div>
@@ -42,7 +42,7 @@ export default async function RouteDetailsPage({ params, searchParams }: { param
         {route.source_url && <a className="text-link" href={route.source_url} target="_blank" rel="noreferrer">{route.source_name} ↗</a>}
       </article>
       <section className="section-block"><div className="section-heading"><div><p className="eyebrow">AVAILABLE ROUTE SEQUENCE</p><h2>Stops</h2></div></div>
-        {routeStops.length ? <ol className="stop-sequence panel">{routeStops.map((stop, index) => <li key={stop!.id}><span>{String(index + 1).padStart(2, "0")}</span><Link href={`/stops/${stop!.id}${demoMode ? "?demo=1" : ""}`}>{stop!.name}</Link><small>{stop!.city} · {stop!.verification_status}</small></li>)}</ol>
+        {routeStops.length ? <ol className="stop-sequence panel">{routeStops.map((stop, index) => <li key={stop!.id}><span>{String(index + 1).padStart(2, "0")}</span><Link href={`/stop/${stop!.id}${demoMode ? "?demo=1" : ""}`}>{stop!.name}</Link><small>{stop!.city} · {stop!.verification_status}</small></li>)}</ol>
           : <p className="empty-state panel">No verified stop sequence is available for this route.</p>}
       </section>
     </section>

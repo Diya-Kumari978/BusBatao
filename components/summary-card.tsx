@@ -17,6 +17,7 @@ export function SummaryCard({
   const [summary, setSummary] = useState(() => buildRuleSummary(reports));
   const [state, setState] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [errorText, setErrorText] = useState("");
+  const confidencePercent = summary.confidence.level === "high" ? 85 : summary.confidence.level === "medium" ? 60 : 30;
 
   const analyze = useCallback(async () => {
     setState("loading");
@@ -37,7 +38,9 @@ export function SummaryCard({
         setState("ready");
       }
     } catch (error) {
-      setSummary(buildRuleSummary(reports));
+      console.error("Summary analysis request failed", error);
+      const fallback = buildRuleSummary(reports);
+      setSummary(fallback);
       setState("error");
       setErrorText(error instanceof Error ? `${error.message} Showing a rules-based summary.` : "Analysis failed. Showing a rules-based summary.");
     }
@@ -52,15 +55,29 @@ export function SummaryCard({
       <span className="summary-label">{summary.generated_by === "AI" ? "AI summary (Gemini)" : "Rules-based fallback"}</span></div>
     </div>
     <div className="summary-content"><p className="eyebrow">{label.toUpperCase()}</p><h2>{summary.summary}</h2>
-      <div className="metric-row"><span>Bus status</span><strong>{summary.busStatus} · {label}</strong></div>
-      <div className="metric-row"><span>Crowd level now</span><strong>{summary.crowdLevel}</strong></div>
+      <div className={`status-badge status-${summary.busStatus}`}><span aria-hidden="true">{summary.busStatus === "arrived" ? "●" : summary.busStatus === "disruption" ? "!" : "?"}</span>
+        <div><span>Bus status · {label}</span><strong>{summary.busStatus}</strong></div></div>
+      <div className="metric-row"><span>Crowd level now</span><strong className={`crowd-badge crowd-${summary.crowdLevel}`}>{summary.crowdLevel}</strong></div>
       <div className="metric-row"><span>Conflicts</span><strong>{summary.conflicts}</strong></div>
       <div className="metric-row"><span>Confidence</span><strong>{summary.confidence.level} · {summary.confidence.reason}</strong></div>
+      <div className="confidence-meter" role="img" aria-label={`Confidence: ${summary.confidence.level}`}>
+        <div className="confidence-track"><span style={{ width: `${confidencePercent}%` }} /></div>
+        <span>{summary.confidence.level} confidence</span>
+      </div>
       <p className="summary-description">{summary.advice}</p>
       {errorText && <p className="inline-error" role="status">{errorText}</p>}
     </div>
-    <div className="summary-actions"><button className="button button-small" type="button" onClick={analyze} disabled={state === "loading"}>{state === "loading" ? "Analysing…" : "Analyse recent reports"}</button>
-      <span className="summary-label">{summary.generated_by === "AI" ? "AI response" : "Not AI-generated"}</span></div>
+    <div className="summary-actions"><button className="button button-small" type="button" onClick={() => void analyze()} disabled={state === "loading"}>{state === "loading" ? "Analysing…" : "Analyse recent reports"}</button>
+      <span className="summary-label" aria-live="polite">{state === "loading" ? "Checking reports…" : summary.generated_by === "AI" ? "AI response" : "Not AI-generated"}</span>
+      <time className="summary-label summary-updated" dateTime={summary.generated_at}>Analysis checked {timeAgo(summary.generated_at)}</time></div>
     <p className="summary-disclaimer">{demoMode ? "These are fictional demonstration records, not passenger reports. " : ""}Reports are unverified observations, not official service information.</p>
   </article>;
+}
+
+function timeAgo(timestamp: string): string {
+  const minutes = Math.max(0, Math.floor((Date.now() - Date.parse(timestamp)) / 60_000));
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+  const hours = Math.floor(minutes / 60);
+  return `${hours} hour${hours === 1 ? "" : "s"} ago`;
 }
