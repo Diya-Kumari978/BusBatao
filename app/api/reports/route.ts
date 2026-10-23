@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { DUPLICATE_WINDOW_MINUTES, MAX_REPORTS_PER_MINUTE } from "@/lib/config";
+import { MAX_REPORTS_PER_MINUTE } from "@/lib/config";
 import { getReports } from "@/lib/data";
 import { getSupabaseAdmin, isSupabaseAuthError } from "@/lib/supabase";
 import { reportInputSchema } from "@/lib/validation";
@@ -65,8 +65,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unable to validate the selected stop or route." }, { status: 500 });
   }
   if (input.stopId && (!stopLookup.data || stopLookup.data.is_demo)) return NextResponse.json({ error: "That stop is unavailable for community reports." }, { status: 400 });
-  if (input.routeId && (!routeLookup.data || routeLookup.data.is_demo)) return NextResponse.json({ error: "That route is unavailable for community reports." }, { status: 400 });
-  if (input.routeId && (routeLookup.data?.verification_status !== "verified" || routeLookup.data.published_status !== "active")) return NextResponse.json({ error: "This route is not active and verified in Supabase yet. Apply supabase/migration.sql; your report was kept locally." }, { status: 400 });
+  if (input.routeId && routeLookup.data?.is_demo) return NextResponse.json({ error: "Demonstration routes cannot accept passenger reports." }, { status: 400 });
   if ((stopLookup.data && stopLookup.data.city !== input.city) || (routeLookup.data && routeLookup.data.city !== input.city)) {
     return NextResponse.json({ error: "The selected stop or route does not match the chosen city." }, { status: 400 });
   }
@@ -79,19 +78,9 @@ export async function POST(request: NextRequest) {
     }
     if (!routeStop) return NextResponse.json({ error: "The selected stop is not listed on this route." }, { status: 400 });
   }
-  const cutoff = new Date(now - DUPLICATE_WINDOW_MINUTES * 60_000).toISOString();
-  let duplicateQuery = supabase.from("reports").select("id").eq("reporter_id", input.reporterId)
-    .gte("submitted_at", cutoff).eq("is_demo", false).limit(1);
-  duplicateQuery = input.stopId ? duplicateQuery.eq("stop_id", input.stopId) : duplicateQuery.eq("route_id", input.routeId!);
-  const { data: duplicate, error: duplicateError } = await duplicateQuery.maybeSingle();
-  if (duplicateError) {
-    console.error("Duplicate report check failed", duplicateError);
-    if (isSupabaseAuthError(duplicateError)) return NextResponse.json({ error: "Supabase rejected SUPABASE_SERVICE_ROLE_KEY (HTTP 401). Your report can still be stored locally; replace the server key to enable shared reports." }, { status: 503 });
-    return NextResponse.json({ error: "Unable to verify repeated submissions. Please try again." }, { status: 500 });
-  }
-  if (duplicate) return NextResponse.json({ error: "A report from this browser for this stop or route was already submitted recently." }, { status: 409 });
-
-  const { data, error } = await supabase.from("reports").insert({
+  const observedIso = new Date(observedAt).toISOString();
+  const expiresIso = new Date(now + 48 * 60 * 60_000).toISOString();
+  const reportValues = {
     stop_id: input.stopId ?? null,
     route_id: input.routeId ?? null,
     city: input.city,
@@ -99,7 +88,7 @@ export async function POST(request: NextRequest) {
     service_status: input.serviceStatus,
     crowd_level: input.crowdLevel,
     description: input.description || null,
-    observed_at: new Date(observedAt).toISOString(),
+    observed_at: observedIso,
     reporter_id: input.reporterId,
     reporter_name: input.reporterName,
     reporter_location: input.reporterLocation || null,
@@ -107,15 +96,23 @@ export async function POST(request: NextRequest) {
     bus_location: input.busLocation || null,
     is_on_bus: input.isOnBus === "skip" ? null : input.isOnBus === "yes",
     left_minutes_ago: input.leftMinutesAgo ?? null,
-    expires_at: new Date(observedAt + 48 * 60 * 60_000).toISOString(),
+    expires_at: expiresIso,
+    updated_at: new Date(now).toISOString(),
     source_type: "community",
     moderation_status: "visible",
     is_demo: false,
-  }).select("id,stop_id,route_id,city,report_type,service_status,crowd_level,description,observed_at,submitted_at,reporter_name,reporter_location,bus_number,bus_location,is_on_bus,left_minutes_ago,expires_at,source_type,moderation_status,is_demo").single();
+  };
+  let activeQuery = supabase.from("reports").select("id").eq("is_demo", false).eq("moderation_status", "visible").gt("expires_at", new Date(now).toISOString()).order("submitted_at", { ascending: false }).limit(1);
+  activeQuery = input.stopId ? activeQuery.eq("stop_id", input.stopId) : activeQuery.eq("route_id", input.routeId!);
+  const { data: active } = await activeQuery.maybeSingle();
+  const result = active
+    ? await supabase.from("reports").update(reportValues).eq("id", active.id).select("id,stop_id,route_id,city,report_type,service_status,crowd_level,description,observed_at,submitted_at,reporter_id,reporter_name,reporter_location,bus_number,bus_location,is_on_bus,left_minutes_ago,expires_at,updated_at,source_type,moderation_status,is_demo").single()
+    : await supabase.from("reports").insert(reportValues).select("id,stop_id,route_id,city,report_type,service_status,crowd_level,description,observed_at,submitted_at,reporter_id,reporter_name,reporter_location,bus_number,bus_location,is_on_bus,left_minutes_ago,expires_at,updated_at,source_type,moderation_status,is_demo").single();
+  const { data, error } = result;
   if (error) {
     console.error("Report insert failed", error);
     if (isSupabaseAuthError(error)) return NextResponse.json({ error: "Supabase rejected SUPABASE_SERVICE_ROLE_KEY (HTTP 401). Your report can still be stored locally; replace the server key to enable shared reports." }, { status: 503 });
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-  return NextResponse.json({ report: data, storage: "database" }, { status: 201 });
+  return NextResponse.json({ report: data, storage: "database", action: active ? "updated" : "created" }, { status: active ? 200 : 201 });
 }

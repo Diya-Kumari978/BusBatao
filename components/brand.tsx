@@ -12,6 +12,6 @@ export function Brand({ compact = false }: { compact?: boolean }) {
       <path d="M13 49v4m38-4v4" stroke="#111111" strokeWidth="4" strokeLinecap="round"/>
       <circle cx="19" cy="54" r="5" fill="#111111"/><circle cx="45" cy="54" r="5" fill="#111111"/>
     </svg>
-    <span className="brand-name"><strong>Bus</strong><strong className="brand-accent">Batao</strong><small>Hyderabad → Jamshoro</small></span>
+    <span className="brand-name"><strong>Bus</strong><strong className="brand-accent">Batao</strong><small>Hyderabad to Jamshoro</small></span>
   </Link>;
 }

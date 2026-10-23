@@ -71,6 +71,7 @@ export interface Report {
   is_on_bus?: boolean | null;
   left_minutes_ago?: number | null;
   expires_at?: string | null;
+  updated_at?: string | null;
   source_type: "community" | "demonstration";
   moderation_status: "visible" | "flagged" | "hidden";
   is_demo: boolean;

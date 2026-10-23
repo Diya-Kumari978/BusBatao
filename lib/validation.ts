@@ -58,6 +58,8 @@ export const tripInputSchema = z.object({
   reporterId: z.string().min(8).max(100), departureAt: z.iso.datetime({ offset: true }),
   crowdLevel: z.enum(CROWD_LEVELS), delayMinutes: z.number().int().min(0).max(300),
   rating: z.number().int().min(1).max(5).nullable(),
+  from: z.string().trim().max(120).optional(), to: z.string().trim().max(120).optional(), routeName: z.string().trim().max(180).optional(),
+  busNumber: z.string().trim().max(40).optional(), reportedAt: z.iso.datetime({ offset: true }).nullable().optional(),
 });
 
 export const flagInputSchema = z.object({

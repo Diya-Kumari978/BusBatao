@@ -65,7 +65,7 @@ export async function getReports(filters: { stopId?: string; routeId?: string; c
   let records: Report[];
   if (filters.includeReporterId) {
     let query = supabase.from("reports")
-      .select("id,stop_id,route_id,city,report_type,service_status,crowd_level,description,observed_at,submitted_at,reporter_id,reporter_name,reporter_location,bus_number,bus_location,is_on_bus,left_minutes_ago,expires_at,source_type,moderation_status,is_demo")
+      .select("id,stop_id,route_id,city,report_type,service_status,crowd_level,description,observed_at,submitted_at,reporter_id,reporter_name,reporter_location,bus_number,bus_location,is_on_bus,left_minutes_ago,expires_at,updated_at,source_type,moderation_status,is_demo")
       .eq("moderation_status", "visible").eq("is_demo", filters.includeDemo ?? false).gt("expires_at", new Date().toISOString())
       .order("observed_at", { ascending: false }).limit(filters.limit ?? 200);
     if (filters.stopId) query = query.eq("stop_id", filters.stopId);
@@ -76,7 +76,7 @@ export async function getReports(filters: { stopId?: string; routeId?: string; c
     else records = (data ?? []) as Report[];
   } else {
     let query = supabase.from("reports")
-      .select("id,stop_id,route_id,city,report_type,service_status,crowd_level,description,observed_at,submitted_at,reporter_name,reporter_location,bus_number,bus_location,is_on_bus,left_minutes_ago,expires_at,source_type,moderation_status,is_demo")
+      .select("id,stop_id,route_id,city,report_type,service_status,crowd_level,description,observed_at,submitted_at,reporter_name,reporter_location,bus_number,bus_location,is_on_bus,left_minutes_ago,expires_at,updated_at,source_type,moderation_status,is_demo")
       .eq("moderation_status", "visible").eq("is_demo", filters.includeDemo ?? false).gt("expires_at", new Date().toISOString())
       .order("observed_at", { ascending: false }).limit(filters.limit ?? 200);
     if (filters.stopId) query = query.eq("stop_id", filters.stopId);

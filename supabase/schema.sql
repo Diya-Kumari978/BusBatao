@@ -55,7 +55,7 @@ create table if not exists public.route_stops (
 
 create table if not exists public.reports (
   id uuid primary key default gen_random_uuid(),
-  route_id text references public.routes(id) on delete set null,
+  route_id text,
   stop_id text references public.stops(id) on delete set null,
   city text not null check (city in ('Hyderabad', 'Jamshoro')),
   report_type text not null check (report_type in ('bus_seen','bus_delayed','no_recent_bus','bus_crowded','bus_full','route_disruption','correction','other')),
@@ -72,6 +72,7 @@ create table if not exists public.reports (
   is_on_bus boolean,
   left_minutes_ago integer check (left_minutes_ago is null or left_minutes_ago between 0 and 1440),
   expires_at timestamptz not null default (now() + interval '48 hours'),
+  updated_at timestamptz not null default now(),
   source_type text not null default 'community' check (source_type in ('community','demonstration')),
   moderation_status text not null default 'visible' check (moderation_status in ('visible','flagged','hidden')),
   is_demo boolean not null default false,
@@ -109,10 +110,39 @@ create table if not exists public.feedback (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.site_feedback (
+  id uuid primary key default gen_random_uuid(),
+  reporter_id text not null unique,
+  name text not null check (char_length(name) between 1 and 80),
+  rating integer not null check (rating between 1 and 5),
+  liked text[] not null default '{}',
+  improve text[] not null default '{}',
+  message text not null default '' check (char_length(message) <= 500),
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.trips (
+  trip_id uuid primary key,
+  route_id text not null,
+  city text not null check (city in ('Hyderabad', 'Jamshoro')),
+  reporter_id text not null,
+  departure_at timestamptz not null,
+  crowd_level text not null default 'unknown' check (crowd_level in ('low','moderate','high','full','unknown')),
+  delay_minutes integer not null default 0 check (delay_minutes between 0 and 300),
+  rating integer check (rating between 1 and 5),
+  from_location text,
+  to_name text,
+  route_name text,
+  bus_number text,
+  reported_at timestamptz,
+  expires_at timestamptz not null default (now() + interval '48 hours'),
+  created_at timestamptz not null default now()
+);
+
 create table if not exists public.trip_feedback (
   id uuid primary key default gen_random_uuid(),
   trip_id uuid not null unique,
-  route_id text not null references public.routes(id) on delete cascade,
+  route_id text not null,
   city text not null check (city in ('Hyderabad', 'Jamshoro')),
   reporter_id text not null,
   crowd_level text not null check (crowd_level in ('low','moderate','high','full')),
@@ -161,6 +191,8 @@ alter table public.reports enable row level security;
 alter table public.report_flags enable row level security;
 alter table public.ai_analyses enable row level security;
 alter table public.feedback enable row level security;
+alter table public.site_feedback enable row level security;
+alter table public.trips enable row level security;
 alter table public.trip_feedback enable row level security;
 alter table public.route_suggestions enable row level security;
 
@@ -172,6 +204,18 @@ drop policy if exists "Public can read route stop sequences" on public.route_sto
 create policy "Public can read route stop sequences" on public.route_stops for select using (true);
 drop policy if exists "Public can read visible reports" on public.reports;
 create policy "Public can read visible reports" on public.reports for select using (moderation_status = 'visible');
+drop policy if exists "Public can read route feedback" on public.feedback;
+create policy "Public can read route feedback" on public.feedback for select using (true);
+drop policy if exists "Public can submit route feedback" on public.feedback;
+create policy "Public can submit route feedback" on public.feedback for insert with check (true);
+drop policy if exists "Public can read website feedback" on public.site_feedback;
+create policy "Public can read website feedback" on public.site_feedback for select to anon, authenticated using (true);
+drop policy if exists "Public can submit website feedback" on public.site_feedback;
+create policy "Public can submit website feedback" on public.site_feedback for insert to anon, authenticated with check (true);
+drop policy if exists "Public can read trip history" on public.trips;
+create policy "Public can read trip history" on public.trips for select using (expires_at > now());
+drop policy if exists "Public can submit trip history" on public.trips;
+create policy "Public can submit trip history" on public.trips for insert with check (true);
 drop policy if exists "Public can read analyses" on public.ai_analyses;
 create policy "Public can read analyses" on public.ai_analyses for select using (true);
 -- No anonymous writes or public reads for flags/suggestions. Server routes use the service role.
