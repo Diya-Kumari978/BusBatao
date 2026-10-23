@@ -44,6 +44,7 @@ export function RouteAnalysis({ area, destination, routeDirection, report }: { a
         <p><strong>Bus</strong><span>{details.find((part) => part.startsWith("Bus is")) || "Condition not included in this update"}; reported at {report.bus_location || report.reporter_location || "location not provided"}</span></p>
         <p><strong>Road</strong><span>{details.find((part) => part.startsWith("Road is") || part.startsWith("City is")) || "Condition not included in this update"}</span></p>
         <p><strong>Reported</strong><span>{new Date(report.observed_at).toLocaleString()}</span></p>
+        <p><strong>Report expires</strong><span>{new Date(report.expires_at || Date.parse(report.observed_at) + 48 * 60 * 60_000).toLocaleString()}</span></p>
         <p><strong>Passenger</strong><span>{report.reporter_name || "Passenger"}{report.reporter_location ? ` · ${report.reporter_location}` : ""}</span></p>
       </div>
       {loading && <p className="analysis-status">Reviewing the latest passenger report…</p>}
